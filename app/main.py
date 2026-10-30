@@ -2,6 +2,7 @@ import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
+# from fastapi.middleware.cors import CORSMiddleware##
 
 from database import get_db, engine, Base
 from schemas import ContactCreate, ContactUpdate, ContactResponse
@@ -24,6 +25,16 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# origins = ["*"]  # Дозволяє запити з будь-якого джерела
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=origins,            # Дозволені джерела (origins)
+#     allow_credentials=True,           # Дозвіл на передачу cookie/headers авторизації
+#     allow_methods=["*"],              # Дозволені HTTP-методи (GET, POST, PUT, DELETE тощо)
+#     allow_headers=["*"],              # Дозволені HTTP-заголовки
+# )
 
 @app.post("/contacts/", response_model=ContactResponse, status_code=status.HTTP_201_CREATED)
 async def create_contact(contact: ContactCreate, db: AsyncSession = Depends(get_db)):

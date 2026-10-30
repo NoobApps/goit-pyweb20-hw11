@@ -69,8 +69,6 @@ async def get_upcoming_birthdays(db: AsyncSession, days: int = 7) -> list[Contac
     """
     today = date.today()
     upcoming_dates = [(today + timedelta(days=i)) for i in range(days + 1)]
-    
-    # Створюємо умови для перевірки комбінацій (місяць, день)
     conditions = [
         and_(
             extract('month', Contact.birthday) == d.month,

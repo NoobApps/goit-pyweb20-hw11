@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Управління Контактами</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <div class="container py-4">
+    <h1 class="mb-4 text-center">📇 Менеджер Контактів</h1>
+
+    <!-- Форма пошуку та швидких дій -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="input-group">
+          <input type="text" id="searchInput" class="form-control" placeholder="Пошук за ім'ям, прізвищем або email...">
+          <button class="btn btn-outline-secondary" onclick="searchContacts()">Пошук</button>
+          <button class="btn btn-outline-danger" onclick="clearSearch()">Скинути</button>
+        </div>
+      </div>
+      <div class="col-md-6 text-md-end">
+        <button class="btn btn-warning me-2" onclick="loadUpcomingBirthdays()">🎂 Днів народження (7 днів)</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#contactModal" onclick="openCreateModal()">➕ Додати контакт</button>
+      </div>
+    </div>
+
+    <!-- Таблиця контактів -->
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <table class="table table-hover table-striped mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>ID</th>
+              <th>Ім'я та Прізвище</th>
+              <th>Email</th>
+              <th>Телефон</th>
+              <th>День народження</th>
+              <th>Додатково</th>
+              <th class="text-end">Дії</th>
+            </tr>
+          </thead>
+          <tbody id="contactsTableBody">
+            <tr>
+              <td colspan="7" class="text-center py-3">Завантаження контактів...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальне вікно Створення / Оновлення контакту -->
+  <div class="modal fade" id="contactModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">Створити контакт</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="contactForm">
+            <input type="hidden" id="contactId">
+            <div class="mb-3">
+              <label for="firstName" class="form-label">Ім'я *</label>
+              <input type="text" class="form-control" id="firstName" required>
+            </div>
+            <div class="mb-3">
+              <label for="lastName" class="form-label">Прізвище *</label>
+              <input type="text" class="form-control" id="lastName" required>
+            </div>
+            <div class="mb-3">
+              <label for="email" class="form-label">Email *</label>
+              <input type="email" class="form-control" id="email" required>
+            </div>
+            <div class="mb-3">
+              <label for="phone" class="form-label">Телефон *</label>
+              <input type="text" class="form-control" id="phone" required>
+            </div>
+            <div class="mb-3">
+              <label for="birthday" class="form-label">День народження *</label>
+              <input type="date" class="form-control" id="birthday" required>
+            </div>
+            <div class="mb-3">
+              <label for="additionalData" class="form-label">Додаткова інформація</label>
+              <textarea class="form-control" id="additionalData" rows="2"></textarea>
+            </div>
+            <div class="text-end">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+              <button type="submit" class="btn btn-success">Зберегти</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- JS Логіка взаємодії з API -->
+  <script>
+    const API_URL = "http://localhost:8000/contacts";
+    let modalInstance = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      modalInstance = new bootstrap.Modal(document.getElementById("contactModal"));
+      loadContacts();
+
+      // Обробник відправки форми
+      document.getElementById("contactForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await saveContact();
+      });
+    });
+
+    // 1. Отримання та відображення всіх контактів
+    async function loadContacts(query = "") {
+      try {
+        const url = query ? `${API_URL}/?query=${encodeURIComponent(query)}` : `${API_URL}/`;
+        const res = await fetch(url);
+        const contacts = await res.json();
+        renderTable(contacts);
+      } catch (err) {
+        console.error("Помилка завантаження:", err);
+        document.getElementById("contactsTableBody").innerHTML = `
+          <tr><td colspan="7" class="text-center text-danger py-3">Не вдалося завантажити контакти. Перевірте, чи запущено API!</td></tr>
+        `;
+      }
+    }
+
+    // 2. Рендеринг рядків таблиці
+    function renderTable(contacts) {
+      const tbody = document.getElementById("contactsTableBody");
+      if (!contacts || contacts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-3">Контактів не знайдено.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = contacts.map(c => `
+        <tr>
+          <td>${c.id}</td>
+          <td><strong>${c.first_name} ${c.last_name}</strong></td>
+          <td><a href="mailto:${c.email}">${c.email}</a></td>
+          <td>${c.phone}</td>
+          <td>${c.birthday}</td>
+          <td><small class="text-muted">${c.additional_data || '-'}</small></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${c.id})">✏️</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteContact(${c.id})">🗑️</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    // 3. Пошук
+    function searchContacts() {
+      const query = document.getElementById("searchInput").value.trim();
+      loadContacts(query);
+    }
+
+    function clearSearch() {
+      document.getElementById("searchInput").value = "";
+      loadContacts();
+    }
+
+    // 4. Отримання днів народження
+    async function loadUpcomingBirthdays() {
+      try {
+        const res = await fetch(`${API_URL}/upcoming-birthdays`);
+        const contacts = await res.json();
+        renderTable(contacts);
+      } catch (err) {
+        alert("Помилка при завантаженні днів народження");
+      }
+    }
+
+    // 5. Відкриття модального вікна для створення
+    function openCreateModal() {
+      document.getElementById("modalTitle").innerText = "Створити контакт";
+      document.getElementById("contactId").value = "";
+      document.getElementById("contactForm").reset();
+    }
+
+    // 6. Відкриття модального вікна для редагування
+    async function openEditModal(id) {
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        const c = await res.json();
+
+        document.getElementById("modalTitle").innerText = "Редагувати контакт";
+        document.getElementById("contactId").value = c.id;
+        document.getElementById("firstName").value = c.first_name;
+        document.getElementById("lastName").value = c.last_name;
+        document.getElementById("email").value = c.email;
+        document.getElementById("phone").value = c.phone;
+        document.getElementById("birthday").value = c.birthday;
+        document.getElementById("additionalData").value = c.additional_data || "";
+
+        modalInstance.show();
+      } catch (err) {
+        alert("Не вдалося завантажити дані контакту");
+      }
+    }
+
+    // 7. Збереження (Створення або Оновлення)
+    async function saveContact() {
+      const id = document.getElementById("contactId").value;
+      const payload = {
+        first_name: document.getElementById("firstName").value,
+        last_name: document.getElementById("lastName").value,
+        email: document.getElementById("email").value,
+        phone: document.getElementById("phone").value,
+        birthday: document.getElementById("birthday").value,
+        additional_data: document.getElementById("additionalData").value || null
+      };
+
+      const method = id ? "PUT" : "POST";
+      const url = id ? `${API_URL}/${id}` : `${API_URL}/`;
+
+      try {
+        const res = await fetch(url, {
+          method: method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          modalInstance.hide();
+          loadContacts();
+        } else {
+          const errData = await res.json();
+          alert("Помилка збереження: " + JSON.stringify(errData.detail || errData));
+        }
+      } catch (err) {
+        alert("Помилка з'єднання з сервером");
+      }
+    }
+
+    // 8. Видалення контакту
+    async function deleteContact(id) {
+      if (!confirm(`Ви дійсно бажаєте видалити контакт ID=${id}?`)) return;
+
+      try {
+        const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          loadContacts();
+        } else {
+          alert("Не вдалося видалити контакт");
+        }
+      } catch (err) {
+        alert("Помилка з'єднання з сервером");
+      }
+    }
+  </script>
+</body>
+</html>
